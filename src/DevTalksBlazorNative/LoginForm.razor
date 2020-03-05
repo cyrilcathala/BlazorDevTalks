@@ -1,0 +1,124 @@
+﻿@using DevTalksBlazorNative.Services
+@inject IStorageService storageService
+
+<PancakeView BackgroundGradientStartColor="Color.White"
+             BackgroundGradientEndColor="Color.GhostWhite"
+             Elevation="8"
+             BorderIsDashed="true"
+             CornerRadius="12"
+             BorderColor="Color.Black"
+             BorderThickness="3"
+             Padding="new Thickness(16)">
+
+    <StackLayout Orientation="StackOrientation.Vertical">
+
+        @* Username *@
+        <Label FontAttributes="FontAttributes.Bold"
+               Text="Utilisateur" />
+        <Entry @bind-Text="login" />
+
+        @* Password *@
+        <Label FontAttributes="FontAttributes.Bold"
+               Margin="new Thickness(0,12,0,0)"
+               Text="Mot de passe" />
+        <Entry @bind-Text="password"
+               IsPassword="true" />
+
+        @* Remember me *@
+        <StackLayout Orientation="StackOrientation.Horizontal">
+            <CheckBox @bind-IsChecked="rememberMe"
+                      @ref="rememberCheckBox"
+                      VerticalOptions="LayoutOptions.Center" />
+            <Label Text="Rester connecté"
+                   VerticalOptions="LayoutOptions.Center" />
+        </StackLayout>
+
+        @* Submit *@
+        <Button @ref="submitButton"
+                IsEnabled="(CanLogin())"
+                OnClick="Login"
+                Text="Connexion"
+                Margin="new Thickness(0,12,0,0)" />
+
+        @* Loading *@
+
+
+        <ActivityIndicator Color="Styles.PrimaryColor"
+                           IsRunning="isLoading" />
+
+        @if (loadingProgress > 0d)
+        {
+            <ProgressBar Progress="loadingProgress"
+                         ProgressColor="Styles.PrimaryColor"
+                         Margin="new Thickness(0, 0, 0, 12)" />
+        }
+
+    </StackLayout>
+
+</PancakeView>
+
+@code
+{
+    private const string CacheFilename = "username";
+
+    private bool rememberMe;
+    private string login;
+    private string password;
+    private double loadingProgress;
+    private bool isLoading;
+
+    private Microsoft.MobileBlazorBindings.Elements.CheckBox rememberCheckBox;
+    private Microsoft.MobileBlazorBindings.Elements.Button submitButton;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        rememberCheckBox.ApplyCheckBoxStyle();
+        submitButton.ApplyButtonStyles();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        login = await storageService.Load(CacheFilename);
+        StateHasChanged();
+    }
+
+    private bool CanLogin() => !string.IsNullOrWhiteSpace(login) && !string.IsNullOrWhiteSpace(password);
+
+    private async Task Login()
+    {
+        if (!CanLogin())
+        {
+            await Application.Current.MainPage.DisplayAlert("Nope !", "Veuillez renseigner un nom d'utilisateur et mot de passe", "Ok");
+            return;
+        }
+
+        try
+        {
+            isLoading = true;
+
+            if (rememberMe)
+            {
+                await storageService.Save(CacheFilename, login);
+            }
+
+            await Task.Delay(2000);
+
+            while (loadingProgress < 1)
+            {
+                await Task.Delay(100);
+                loadingProgress += 0.01;
+                StateHasChanged();
+            }
+
+            loadingProgress = 0;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
